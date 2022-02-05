@@ -36,10 +36,14 @@ func (pool *Pool) start() {
 }
 
 func (pool *Pool) Wait() {
-	close(pool.taskChan)
+	//close(pool.taskChan)
 	<-pool.stopped
 	close(pool.errorChan)
 	close(pool.stopped)
+}
+
+func (pool *Pool) Close() {
+	close(pool.taskChan)
 }
 
 func (pool *Pool) AddTask(task *Task) {

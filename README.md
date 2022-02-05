@@ -50,6 +50,7 @@ func main() {
 		}))
 		log.Printf("Added Task #%d", i)
 	}
+	pool.Close()
 	pool.Wait()
 }
 ```
