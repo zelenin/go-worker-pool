@@ -1,61 +1,53 @@
 package workerpool
 
 import (
-	"fmt"
+	"context"
 	"sync"
 )
 
-type TaskError struct {
-	Id    int64
-	error error
-}
+type Task func(ctx context.Context) error
 
-func (err TaskError) Error() string {
-	return fmt.Sprintf("Task #%d: %s", err.Id, err.error)
-}
-
-func (err TaskError) Unwrap() error {
-	return err.error
-}
-
-type Processer func(id int64) error
-
-type Task struct {
-	Id        int64
-	Processer Processer
-}
-
-func NewTask(id int64, processer Processer) *Task {
-	return &Task{
-		Id:        id,
-		Processer: processer,
-	}
-}
-
-func NewWorker(id int64, taskChan chan *Task, errorChan chan error) *Worker {
+func NewWorker(ctx context.Context, id int64, taskChan chan Task, errorChan chan error) *Worker {
+	ctx, cancel := context.WithCancel(ctx)
 	return &Worker{
-		id:        id,
+		ctx:       ctx,
+		cancel:    cancel,
 		taskChan:  taskChan,
 		errorChan: errorChan,
 	}
 }
 
 type Worker struct {
-	id        int64
-	taskChan  chan *Task
+	ctx       context.Context
+	cancel    context.CancelFunc
+	taskChan  chan Task
 	errorChan chan error
+}
+
+func (worker *Worker) Stop() {
+	worker.cancel()
 }
 
 func (worker *Worker) Run(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var err error
-	for task := range worker.taskChan {
-		err = task.Processer(task.Id)
-		if err != nil {
-			worker.errorChan <- TaskError{
-				Id:    task.Id,
-				error: err,
+	for {
+		select {
+		case <-worker.ctx.Done():
+			return
+
+		case task, ok := <-worker.taskChan:
+			if worker.ctx.Err() != nil {
+				return
+			}
+			if !ok {
+				return
+			}
+
+			err = task(worker.ctx)
+			if err != nil {
+				worker.errorChan <- err
 			}
 		}
 	}

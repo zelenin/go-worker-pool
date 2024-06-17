@@ -8,17 +8,17 @@ Deadly simple worker pool
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	workerpool "github.com/zelenin/go-worker-pool"
 	"log"
-	"time"
 )
 
 func main() {
-	pool := workerpool.NewPool(2, 2)
+	pool := workerpool.NewPool(2, 10)
 
 	go func() {
-		log.Printf("error handler start")
 		errorChan := pool.Errors()
 
 		for {
@@ -27,30 +27,26 @@ func main() {
 				break
 			}
 
-			taskId := err.(workerpool.TaskError).Id
-			err = errors.Unwrap(err)
-			log.Printf("task #%d err: %s", taskId, err)
+			log.Printf("%s", err)
 		}
-
-		log.Printf("err handler finished")
 	}()
 
 	for i := int64(1); i < 100; i++ {
-		log.Printf("Adding Task #%d", i)
-		pool.AddTask(workerpool.NewTask(i, func(id int64) error {
-			log.Printf("Task #%d started", id)
-			time.Sleep(10 * time.Second)
-			log.Printf("Task #%d finished", id)
+		if pool.Stopped() {
+			break
+		}
 
+		id := i	
+		pool.AddTask(func(ctx context.Context) error {
 			if id%2 == 0 {
-				return errors.New("task error")
+				return fmt.Errorf("Task #%d: %w", id, errors.New("task error"))
 			}
 
 			return nil
-		}))
-		log.Printf("Added Task #%d", i)
+		})
 	}
-	pool.Close()
+	
+	pool.Stop()
 	pool.Wait()
 }
 ```
