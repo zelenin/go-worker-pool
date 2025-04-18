@@ -45,8 +45,8 @@ func (pool *Pool) start() {
 }
 
 func (pool *Pool) Wait() {
-	<-pool.stoppedChan
 	close(pool.taskChan)
+	<-pool.stoppedChan
 	close(pool.errorChan)
 	close(pool.stoppedChan)
 }
