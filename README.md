@@ -32,10 +32,6 @@ func main() {
 	}()
 
 	for i := int64(1); i < 100; i++ {
-		if pool.Stopped() {
-			break
-		}
-
 		id := i	
 		pool.AddTask(func(ctx context.Context) error {
 			if id%2 == 0 {
@@ -46,7 +42,6 @@ func main() {
 		})
 	}
 	
-	pool.Stop()
 	pool.Wait()
 }
 ```
